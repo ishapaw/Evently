@@ -18,6 +18,7 @@ func NewEventController(s service.EventService) *EventController {
 }
 
 func (ec *EventController) CreateEvent(c *gin.Context) {
+	ctx := c.Request.Context()
 
 	var event models.Event
 
@@ -26,7 +27,7 @@ func (ec *EventController) CreateEvent(c *gin.Context) {
 		return
 	}
 
-	createdEvent, err := ec.service.CreateEvent(&event)
+	createdEvent, err := ec.service.CreateEvent(ctx, &event)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

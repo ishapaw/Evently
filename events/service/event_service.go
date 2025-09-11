@@ -6,7 +6,6 @@ import (
 	"errors"
 	"events/models"
 	"events/repository"
-	"log"
 	"strconv"
 
 	"github.com/redis/go-redis/v9"
@@ -78,11 +77,11 @@ func (s *eventService) getEventFromCache(ctx context.Context, id string) (*model
 	seatKey := "event:" + id
 
 	availableSeatsStr, err := s.redisSeats.Get(ctx, seatKey).Result()
-	if err!=nil {
+	if err != nil {
 		tickets, err1 := s.repo.FindAvailableTicketsByIDs([]string{id})
 		if err1 != nil {
 			return nil, err1
-		}else{
+		} else {
 			ev.AvailableTickets = tickets[id]
 		}
 	} else {
@@ -90,7 +89,6 @@ func (s *eventService) getEventFromCache(ctx context.Context, id string) (*model
 		ev.AvailableTickets = int64(availableSeats)
 	}
 
-				
 	s.redis.Expire(ctx, cacheKey, 10*time.Minute)
 	return &ev, nil
 
@@ -99,8 +97,8 @@ func (s *eventService) getEventFromCache(ctx context.Context, id string) (*model
 func (s *eventService) GetEventByID(ctx context.Context, id string) (*models.Event, error) {
 	cacheKey := "event:" + id
 
-	cachedEvent, err := s.getEventFromCache(ctx,id)
-	if err==nil {
+	cachedEvent, err := s.getEventFromCache(ctx, id)
+	if err == nil {
 		return cachedEvent, nil
 	}
 
@@ -124,22 +122,24 @@ func (s *eventService) GetAllEvents(page, limit int64) ([]models.Event, error) {
 func (s *eventService) getUpcomingEventsFromCache(ctx context.Context, cacheKey string) ([]models.UpcomingEvent, error) {
 
 	val, err := s.redis.Get(ctx, cacheKey).Result()
-	if err!= nil {
+	if err != nil {
 		return nil, err
 	}
 
 	var events []models.UpcomingEvent
-	if jsonErr := json.Unmarshal([]byte(val), &events);jsonErr != nil {
+	if jsonErr := json.Unmarshal([]byte(val), &events); jsonErr != nil {
 		return nil, jsonErr
 	}
 
 	ids := make([]string, len(events))
 	for i, ev := range events {
-		ids[i] = ev.ID.Hex()
+		ids[i] = "event:" + ev.ID.Hex()
 	}
+
 
 	vals, err1 := s.redisSeats.MGet(ctx, ids...).Result()
 	if err1 == nil {
+
 		seatMap := make(map[string]int)
 		for i, val := range vals {
 			if val != nil {
@@ -148,25 +148,29 @@ func (s *eventService) getUpcomingEventsFromCache(ctx context.Context, cacheKey 
 		}
 
 		for i, ev := range events {
-			if seats, ok := seatMap[ev.ID.Hex()]; ok {
+			key := "event:" + ev.ID.Hex()
+			if seats, ok := seatMap[key]; ok {
 				events[i].AvailableTickets = int64(seats)
 			}
 		}
+
 	} else {
+
 		availMap, err := s.repo.FindAvailableTicketsByIDs(ids)
-			if err != nil {
-				return nil, err
-			}
+		if err != nil {
+			return nil, err
+		}
 
-			for i, ev := range events {
-				if avail, ok := availMap[ev.ID.Hex()]; ok {
-					events[i].AvailableTickets = avail
-				}
+		for i, ev := range events {
+			key := "event:" + ev.ID.Hex()
+			if avail, ok := availMap[key]; ok {
+				events[i].AvailableTickets = avail
 			}
+		}
+
 	}
-	
-	s.redis.Expire(ctx, cacheKey, 5*time.Minute)
 
+	s.redis.Expire(ctx, cacheKey, 5*time.Minute)
 	return events, nil
 }
 
@@ -176,7 +180,7 @@ func (s *eventService) GetAllUpcomingEvents(ctx context.Context, page, limit int
 	cacheKey := fmt.Sprintf("events:upcoming:%s:page=%d:limit=%d", today, page, limit)
 
 	cachedEvents, err := s.getUpcomingEventsFromCache(ctx, cacheKey)
-	if err==nil {
+	if err == nil {
 		return cachedEvents, nil
 	}
 
@@ -191,7 +195,7 @@ func (s *eventService) GetAllUpcomingEvents(ctx context.Context, page, limit int
 	return events, nil
 }
 
-func (s *eventService) updateCache(ctx context.Context, id string, updates map[string]interface{}){
+func (s *eventService) updateCache(ctx context.Context, id string, updates map[string]interface{}) {
 	_, ok := updates["available_tickets"]
 
 	if len(updates) > 1 || !ok {

@@ -55,8 +55,9 @@ func main() {
 	db := client.Database(dbName)
 	repo := repository.NewEventRepository(db)
 
-	redisClient := newRedisClient("localhost","6379")
-	redisSeats := newRedisClient("localhost","6380")
+	redisClient := newRedisClient("redis", "6379")
+	redisSeats := newRedisClient("redis-seats", "6379")
+
 
 	eventService := service.NewEventService(repo, redisClient, redisSeats)
 	eventController := controllers.NewEventController(eventService)
