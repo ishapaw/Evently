@@ -1,0 +1,125 @@
+version: "3.9"
+
+services:
+  # 1️⃣ PostgreSQL for Users Service
+  postgres:
+    image: postgres:15
+    container_name: postgres
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: usersdb
+    ports:
+      - "5433:5432"   # host:container (connect from host via localhost:5433)
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - evently-net
+
+  # 2️⃣ MongoDB for Events Service
+  mongodb:
+    image: mongo:6.0
+    container_name: mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: secret
+      MONGO_INITDB_DATABASE: eventsdb
+    ports:
+      - "27018:27017"   
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - evently-net
+
+  # 3️⃣ Users Service (talks to Postgres)
+  users-service:
+    build:
+      context: ./users
+      dockerfile: Dockerfile   # Ubuntu-based
+    container_name: users-service
+    depends_on:
+      - postgres
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: admin
+      DB_PASSWORD: secret
+      DB_NAME: usersdb
+    ports:
+      - "8081:8081"
+    networks:
+      - evently-net
+
+
+  events-service:
+    build:
+      context: ./events
+      dockerfile: Dockerfile  
+    container_name: events-service
+    depends_on:
+      - mongodb
+    environment:
+      DB_HOST: mongodb
+      DB_PORT: 27017
+      DB_USER: admin
+      DB_PASSWORD: secret
+      DB_NAME: eventsdb
+
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ""
+    ports:
+      - "8082:8082"
+    networks:
+      - evently-net
+
+
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile   
+    container_name: gateway
+    depends_on:
+      - users-service
+      - events-service
+    ports:
+      - "8080:8080"
+    environment:
+      USERS_SERVICE_URL: http://users-service:8081
+      EVENTS_SERVICE_URL: http://events-service:8082
+    networks:
+      - evently-net
+
+
+  redis:
+    image: redis:7
+    container_name: redis
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "100mb", "--maxmemory-policy", "allkeys-lfu"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - evently-net
+
+
+  redis-seats:
+    image: redis:7
+    container_name: redis-seats
+    command: ["redis-server", "--appendonly", "yes"] 
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_seats_data:/data
+    networks:
+      - evently-net
+
+
+volumes:
+  postgres_data:
+  mongo_data:
+  redis_data:
+
+networks:
+  evently-net:
+    driver: bridge
