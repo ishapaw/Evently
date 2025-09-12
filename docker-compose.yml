@@ -16,7 +16,22 @@ services:
     networks:
       - evently-net
 
-  # 2️⃣ MongoDB for Events Service
+
+  postgres-bookings:
+    image: postgres:15
+    container_name: postgres-bookings
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: bookingsdb
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_bookings_data:/var/lib/postgresql/data
+    networks:
+      - evently-net
+    
+
   mongodb:
     image: mongo:6.0
     container_name: mongodb
@@ -31,11 +46,11 @@ services:
     networks:
       - evently-net
 
-  # 3️⃣ Users Service (talks to Postgres)
+
   users-service:
     build:
       context: ./users
-      dockerfile: Dockerfile   # Ubuntu-based
+      dockerfile: Dockerfile  
     container_name: users-service
     depends_on:
       - postgres
@@ -50,6 +65,47 @@ services:
     networks:
       - evently-net
 
+  bookings-service:
+    build:
+      context: ./bookings
+      dockerfile: Dockerfile
+    container_name: bookings-service
+    depends_on:
+      - postgres-bookings
+      - events-service
+    environment:
+      DB_HOST: postgres-bookings
+      DB_PORT: 5432
+      DB_USER: admin
+      DB_PASSWORD: secret
+      DB_NAME: bookingsdb
+      EVENTS_SERVICE_URL: http://events-service:8082
+      REDIS_SEATS_HOST: redis-seats
+      REDIS_SEATS_PORT: 6379
+      REDIS_SEATS_PASSWORD: ""
+    ports:
+      - "8083:8083"
+    networks:
+      - evently-net
+
+
+  bookings-view-service:
+    build:
+      context: ./bookings_view
+      dockerfile: Dockerfile
+    container_name: bookings-view-service
+    depends_on:
+      - postgres-bookings
+    environment:
+      DB_HOST: postgres-bookings
+      DB_PORT: 5432
+      DB_USER: admin
+      DB_PASSWORD: secret
+      DB_NAME: bookingsdb
+    ports:
+      - "8084:8084"
+    networks:
+      - evently-net
 
   events-service:
     build:
@@ -117,8 +173,10 @@ services:
 
 volumes:
   postgres_data:
+  postgres_bookings_data:
   mongo_data:
   redis_data:
+  redis_seats_data:
 
 networks:
   evently-net:
