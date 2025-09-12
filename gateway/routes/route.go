@@ -16,5 +16,9 @@ func RegisterRoutes(r *gin.Engine) {
 	protected.Use(auth.AuthMiddleware())
 	{
 		protected.Any("/events/*path", proxy.ReverseProxy("http://events-service:8082"))
+		protected.Any("/bookings/*path", proxy.ReverseProxy("http://bookings-view-service:8084"))
 	}
+
+	
+
 }
