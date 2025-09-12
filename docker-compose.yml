@@ -1,7 +1,90 @@
 version: "3.9"
 
 services:
-  # 1️⃣ PostgreSQL for Users Service
+
+  bookings-consumer:
+    build: ./bookings/bookings_consumer
+    env_file:
+      - .env
+    environment:
+      - KAFKA_BROKERS=kafka:9092
+      - REDIS_REQUESTS_HOST=redis-requests
+      - REDIS_REQUESTS_PORT=6379
+      - REDIS_SEATS_HOST=redis-seats
+      - REDIS_SEATS_PORT=6379
+      - POSTGRES_BOOKINGS_HOST=postgres-bookings
+      - POSTGRES_BOOKINGS_PORT=5432
+      - POSTGRES_BOOKINGS_USER=admin
+      - POSTGRES_BOOKINGS_PASSWORD=secret
+      - POSTGRES_BOOKINGS_DB=bookingsdb
+    depends_on:
+      - kafka
+      - redis-requests
+      - redis-seats
+      - postgres-bookings
+    restart: always
+    networks:
+      - evently-net
+    deploy:
+      replicas: 3 
+
+  cancel-consumer:
+    build: ./bookings/cancel_consumer
+    env_file:
+      - .env
+    environment:
+      - KAFKA_BROKERS=kafka:9092
+      - REDIS_REQUESTS_HOST=redis-requests
+      - REDIS_REQUESTS_PORT=6379
+      - REDIS_SEATS_HOST=redis-seats
+      - REDIS_SEATS_PORT=6379
+      - POSTGRES_BOOKINGS_HOST=postgres-bookings
+      - POSTGRES_BOOKINGS_PORT=5432
+      - POSTGRES_BOOKINGS_USER=admin
+      - POSTGRES_BOOKINGS_PASSWORD=secret
+      - POSTGRES_BOOKINGS_DB=bookingsdb
+    depends_on:
+      - kafka
+      - redis-requests
+      - redis-seats
+      - postgres-bookings
+    restart: always
+    networks:
+      - evently-net
+    deploy:
+      replicas: 1
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - evently-net
+
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    ports:
+      - "9092:9092"     
+      - "29092:29092"   
+    networks:
+      - evently-net
+
+
   postgres:
     image: postgres:15
     container_name: postgres
@@ -50,7 +133,9 @@ services:
   users-service:
     build:
       context: ./users
-      dockerfile: Dockerfile  
+      dockerfile: Dockerfile
+    env_file:
+      - .env  
     container_name: users-service
     depends_on:
       - postgres
@@ -65,34 +150,12 @@ services:
     networks:
       - evently-net
 
-  bookings-service:
-    build:
-      context: ./bookings
-      dockerfile: Dockerfile
-    container_name: bookings-service
-    depends_on:
-      - postgres-bookings
-      - events-service
-    environment:
-      DB_HOST: postgres-bookings
-      DB_PORT: 5432
-      DB_USER: admin
-      DB_PASSWORD: secret
-      DB_NAME: bookingsdb
-      EVENTS_SERVICE_URL: http://events-service:8082
-      REDIS_SEATS_HOST: redis-seats
-      REDIS_SEATS_PORT: 6379
-      REDIS_SEATS_PASSWORD: ""
-    ports:
-      - "8083:8083"
-    networks:
-      - evently-net
-
-
   bookings-view-service:
     build:
       context: ./bookings_view
       dockerfile: Dockerfile
+    env_file:
+      - .env
     container_name: bookings-view-service
     depends_on:
       - postgres-bookings
@@ -111,6 +174,8 @@ services:
     build:
       context: ./events
       dockerfile: Dockerfile  
+    env_file:
+      - .env
     container_name: events-service
     depends_on:
       - mongodb
@@ -133,16 +198,20 @@ services:
   gateway:
     build:
       context: ./gateway
-      dockerfile: Dockerfile   
+      dockerfile: Dockerfile 
+    env_file:
+      - .env  
     container_name: gateway
     depends_on:
       - users-service
       - events-service
+      - kafka
     ports:
       - "8080:8080"
     environment:
       USERS_SERVICE_URL: http://users-service:8081
       EVENTS_SERVICE_URL: http://events-service:8082
+      KAFKA_BROKER: kafka:9092 
     networks:
       - evently-net
 
@@ -170,6 +239,18 @@ services:
     networks:
       - evently-net
 
+  redis-requests:
+    image: redis:7
+    container_name: redis-requests
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "50mb", "--maxmemory-policy", "allkeys-lru"]
+    ports:
+      - "6381:6379"   # expose separately on host
+    volumes:
+      - redis_requests_data:/data
+    networks:
+      - evently-net
+
+
 
 volumes:
   postgres_data:
@@ -177,6 +258,7 @@ volumes:
   mongo_data:
   redis_data:
   redis_seats_data:
+  redis_requests_data:
 
 networks:
   evently-net:

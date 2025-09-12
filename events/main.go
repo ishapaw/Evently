@@ -18,11 +18,11 @@ import (
 )
 
 func main() {
-	dbHost := getEnv("DB_HOST", "mongodb")
-	dbPort := getEnv("DB_PORT", "27017")
-	dbUser := getEnv("DB_USER", "admin")
-	dbPass := getEnv("DB_PASSWORD", "secret")
-	dbName := getEnv("DB_NAME", "eventsdb")
+	dbHost := mustGetEnv("DB_EVENTS_HOST")
+	dbPort := mustGetEnv("DB_EVENTS_PORT")
+	dbUser := mustGetEnv("DB_EVENTS_USER")
+	dbPass := mustGetEnv("DB_EVENTS_PASSWORD")
+	dbName := mustGetEnv("DB_EVENTS_NAME")
 
 	uri := "mongodb://" + dbUser + ":" + dbPass + "@" + dbHost + ":" + dbPort
 
@@ -55,9 +55,8 @@ func main() {
 	db := client.Database(dbName)
 	repo := repository.NewEventRepository(db)
 
-	redisClient := newRedisClient("redis", "6379")
-	redisSeats := newRedisClient("redis-seats", "6379")
-
+	redisClient := newRedisClient(mustGetEnv("REDIS_HOST"), mustGetEnv("REDIS_PORT"))
+	redisSeats := newRedisClient(mustGetEnv("REDIS_SEATS_HOST"), mustGetEnv("REDIS_SEATS_PORT"))
 
 	eventService := service.NewEventService(repo, redisClient, redisSeats)
 	eventController := controllers.NewEventController(eventService)
@@ -68,6 +67,7 @@ func main() {
 		api.GET("/events/all", eventController.GetAllEvents)
 		api.GET("/events/upcoming", eventController.GetAllUpcomingEvents)
 		api.GET("/events/:id", eventController.GetEventByID)
+		api.GET("/events/price/:id", eventController.GetPriceByID)
 
 		admin := api.Group("/events")
 		admin.Use(auth.AdminOnly())
@@ -77,36 +77,34 @@ func main() {
 		}
 	}
 
-	port := getEnv("PORT", "8082")
+	port := mustGetEnv("PORT_EVENTS")
 	log.Println("Events service running on port " + port)
 	if err := r.Run(":" + port); err != nil {
-		log.Fatal("Failed to start server:", err)
+		log.Fatal("Failed to start events server:", err)
 	}
 }
 
-func getEnv(key, fallback string) string {
-	if value, ok := os.LookupEnv(key); ok {
-		return value
-	}
-	return fallback
-}
-
-func newRedisClient(host string, port string) *redis.Client {
+func newRedisClient(host, port string) *redis.Client {
 	addr := host + ":" + port
-	pass := getEnv("REDIS_PASSWORD", "")
-	db := 0
-
+	pass := os.Getenv("REDIS_PASSWORD")
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     addr,
 		Password: pass,
-		DB:       db,
+		DB:       0,
 	})
 
 	ctx := context.Background()
 	if err := rdb.Ping(ctx).Err(); err != nil {
 		log.Fatal("Failed to connect to Redis:", err)
 	}
-
 	log.Println("Connected to Redis at", addr)
 	return rdb
+}
+
+func mustGetEnv(key string) string {
+	value, ok := os.LookupEnv(key)
+	if !ok || value == "" {
+		log.Fatalf("Environment variable %s is required but not set", key)
+	}
+	return value
 }

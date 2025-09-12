@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -34,8 +36,23 @@ func AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		if claims, ok := token.Claims.(jwt.MapClaims); ok  {
+		if claims, ok := token.Claims.(jwt.MapClaims); ok {
+			log.Println("JWT Claims:", claims)
+
 			c.Request.Header.Set("X-User-Role", claims["role"].(string))
+			if userIDVal, ok := claims["user_id"]; ok {
+				switch v := userIDVal.(type) {
+				case float64:
+					c.Request.Header.Set("X-User-Id", fmt.Sprintf("%.0f", v))
+				case int:
+					c.Request.Header.Set("X-User-Id", fmt.Sprintf("%d", v))
+				case string:
+					c.Request.Header.Set("X-User-Id", v)
+				default:
+					log.Println("user_id claim has unexpected type")
+					c.Request.Header.Set("X-User-Id", "")
+				}
+			}
 		}
 
 		c.Next()

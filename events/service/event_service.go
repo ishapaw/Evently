@@ -18,9 +18,11 @@ import (
 type EventService interface {
 	CreateEvent(ctx context.Context, event *models.Event) (*models.Event, error)
 	GetEventByID(ctx context.Context, id string) (*models.Event, error)
+	GetTicketPrice(id string) (float64, error) 
 	GetAllEvents(page, limit int64) ([]models.Event, error)
 	GetAllUpcomingEvents(ctx context.Context, page, limit int64) ([]models.UpcomingEvent, error)
 	UpdateEvent(ctx context.Context, id string, updates map[string]interface{}) (*models.Event, error)
+	DeleteEvent(id string) error
 }
 
 type eventService struct {
@@ -92,6 +94,10 @@ func (s *eventService) getEventFromCache(ctx context.Context, id string) (*model
 	s.redis.Expire(ctx, cacheKey, 10*time.Minute)
 	return &ev, nil
 
+}
+
+func (s *eventService) GetTicketPrice(id string) (float64, error) {
+	return s.repo.GetPriceByID(id)
 }
 
 func (s *eventService) GetEventByID(ctx context.Context, id string) (*models.Event, error) {
