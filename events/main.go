@@ -73,7 +73,6 @@ func main() {
 		api.GET("/events/all", eventController.GetAllEvents)
 		api.GET("/events/upcoming", eventController.GetAllUpcomingEvents)
 		api.GET("/events/:id", eventController.GetEventByID)
-		api.GET("/events/price/:id", eventController.GetPriceByID)
 
 		admin := api.Group("/events")
 		admin.Use(auth.AdminOnly())

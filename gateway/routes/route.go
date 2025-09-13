@@ -31,9 +31,13 @@ func HandleBookingRequest(c *gin.Context) {
 	}
 	log.Println("Request body:", body)
 
+	if _, ok := body["request_id"]; !ok {
+
 		body["request_id"] = uuid.New().String()
 		log.Println("Generated new request_id:", body["request_id"])
 	
+	}
+		
 
 	userID := c.GetHeader("X-User-Id")
 	if userID == "" {
@@ -41,6 +45,7 @@ func HandleBookingRequest(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "missing X-User-Id header"})
 		return
 	}
+
 	body["user_id"] = userID
 	log.Println("User ID from header:", userID)
 
@@ -61,7 +66,7 @@ func HandleBookingRequest(c *gin.Context) {
 	}
 
 	log.Println("request successfully queued")
-	c.JSON(http.StatusAccepted, gin.H{"status": "request queued"})
+	c.JSON(http.StatusAccepted, gin.H{"status": "request queued", "request_id" : body["request_id"]})
 }
 
 func RegisterRoutes(r *gin.Engine, prod *kafka.Producer) {

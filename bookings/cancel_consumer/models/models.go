@@ -1,12 +1,8 @@
 package models
 
-import(
+import (
 	"time"
-	"bookings_consumer/kafka" 
-	"github.com/redis/go-redis/v9"
-	"gorm.io/gorm"
 )
-
 
 type Booking struct {
 	ID        string    `gorm:"primaryKey;type:uuid;default:gen_random_uuid()" json:"id"`
@@ -20,25 +16,15 @@ type Booking struct {
 	UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updatedAt"`
 }
 
-type KafkaEvent struct {
-	RequestID string `json:"request_id"`
-	EventID   string `json:"event_id"`
+type KafkaCancelEvent struct {
+	BookingRequestId string `json:"booking_request_id"`
+	EventId   string `json:"event_id"`
+	BookingId string `json:"booking_id"`
 	Seats     int64  `json:"seats"`
-	UserID    string `json:"user_id"`
-	Price float64 `json:"price"`
-	State     string `json:"state"`
 }
 
 type KafkaUpdateEvent struct {
 	EventId   string `json:"event_id"`
 	Seats     int64  `json:"seats"`
 	Operation string `json:"operation"`
-}
-
-type ProcessorDeps struct {
-    RedisReq   *redis.Client
-    RedisSeats *redis.Client
-    RedisPrice *redis.Client
-    DB         *gorm.DB
-    Producer   *kafka.Producer
 }

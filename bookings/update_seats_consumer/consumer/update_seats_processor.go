@@ -1,27 +1,29 @@
 package consumer
 
 import (
-	"log"
-	"time"
 	"context"
 	"encoding/json"
+	"fmt"
+	"log"
+	"time"
 
 	"update_seats_consumer/kafka"
 
 	"github.com/redis/go-redis/v9"
 
-	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
-
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
+type KafkaUpdateEvent struct {
+	EventId   string `json:"event_id"`
+	Seats     int64  `json:"seats"`
+	Operation string `json:"operation"`
+}
+
 func processUpdateSeatsMessage(ctx context.Context, key []byte, value []byte, redis *redis.Client, mongoClient *mongo.Client, producer *kafka.Producer) error {
-	var msg struct {
-		EventID string `json:"event_id"`
-		Seats   int64  `json:"seats"`
-		UserID  string `json:"user_id"`
-	}
+	var msg KafkaUpdateEvent
 
 	if err := json.Unmarshal(value, &msg); err != nil {
 		log.Printf("Failed to parse update seats message: %v", err)
@@ -31,22 +33,30 @@ func processUpdateSeatsMessage(ctx context.Context, key []byte, value []byte, re
 	updatedSeatsKey := "updatedSeats:" + string(key)
 
 	exists, err := redis.Exists(ctx, updatedSeatsKey).Result()
-    if err != nil {
-        log.Printf("Redis error: %v", err)
-        return err
-    }
+	if err != nil {
+		log.Printf("Redis error: %v", err)
+		return err
+	}
 
-    if exists > 0 {
-        log.Printf("Skipping request %s: already processed", string(key))
-        return nil 
-    }
+	if exists > 0 {
+		log.Printf("Skipping request %s: already processed", string(key))
+		return nil
+	}
 
-	oid, err := primitive.ObjectIDFromHex(msg.EventID)
+	oid, err := primitive.ObjectIDFromHex(msg.EventId)
 
-	
 	collection := mongoClient.Database("eventsdb").Collection("events")
 	filter := bson.M{"_id": oid}
-	update := bson.M{"$inc": bson.M{"available_tickets": -msg.Seats}}
+
+	var update bson.M
+
+	if msg.Operation == "add" {
+		update = bson.M{"$inc": bson.M{"available_tickets": msg.Seats}}
+	} else if msg.Operation == "subtract" {
+		update = bson.M{"$inc": bson.M{"available_tickets": -msg.Seats}}
+	} else {
+		return fmt.Errorf("Invalid operation type: %s for requestId %s", msg.Operation, string(key))
+	}
 
 	res, err := collection.UpdateOne(ctx, filter, update)
 	if err != nil {
@@ -55,17 +65,16 @@ func processUpdateSeatsMessage(ctx context.Context, key []byte, value []byte, re
 	}
 
 	if res.MatchedCount == 0 {
-		log.Printf("No event found with ID %s", msg.EventID)
+		log.Printf("No event found with ID %s", msg.EventId)
 		return nil
 	}
 
 	if err := redis.Set(ctx, updatedSeatsKey, "processed", 5*time.Minute).Err(); err != nil {
-        log.Printf("Failed to mark request in Redis: %v", err)
-        return err
-    }
+		log.Printf("Failed to mark request in Redis: %v", err)
+		return err
+	}
 
-	log.Printf("Updated seats for event %s: -%d seats", msg.EventID, msg.Seats)
-
+	log.Printf("Updated seats for event %s: -%d seats", msg.EventId, msg.Seats)
 
 	return nil
 }

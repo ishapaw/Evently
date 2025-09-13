@@ -32,8 +32,6 @@ end
 `)
 
 
-
-
 func processBookingMessage(ctx context.Context, value []byte, deps *models.ProcessorDeps){
 	var req models.KafkaEvent
 	if err := json.Unmarshal(value, &req); err != nil {
@@ -146,6 +144,7 @@ func stateHandlerFunc2(ctx context.Context, req models.KafkaEvent, deps *models.
 
 	req.State = "state3"
 	saveState(ctx, deps.RedisReq, reqKey, req.State)
+	stateHandlerFunc3(ctx, req, deps)
 }
 
 func stateHandlerFunc3(ctx context.Context, req models.KafkaEvent, deps *models.ProcessorDeps) {
@@ -153,8 +152,8 @@ func stateHandlerFunc3(ctx context.Context, req models.KafkaEvent, deps *models.
 	seatsKey := "event:" + req.EventID
 
 	if isCancelled(ctx, deps.RedisReq, reqKey) {
-		// delete booking + restore seats
-		if err := deps.DB.Where("request_id = ?", req.RequestID).Delete(&models.Booking{}).Error; err != nil {
+		// update booking status + restore seats
+		if err := deps.DB.Model(&models.Booking{}).Where("request_id = ?", req.RequestID).Update("status","cancelled").Error; err != nil {
 			log.Printf("Error deleting cancelled booking %s: %v", req.RequestID, err)
 			return
 		}
@@ -181,9 +180,10 @@ func saveState(ctx context.Context, rdb *redis.Client, key string, state string)
 }
 
 func publishSeatsUpdate(producer *kafka.Producer, req models.KafkaEvent) error {
-	event := models.KafkaEvent{
-		EventID: req.EventID,
+	event := models.KafkaUpdateEvent{
+		EventId: req.EventID,
 		Seats:   req.Seats,
+		Operation: "subtract",
 	}
 
 	payload, err := json.Marshal(event)

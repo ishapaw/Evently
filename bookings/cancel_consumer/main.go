@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"cancel_consumer/consumer"
+	"cancel_consumer/kafka"
 
 	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/postgres"
@@ -45,8 +46,10 @@ func main() {
 		log.Fatal("Failed to connect to bookings database:", err)
 	}
 
+	producer := kafka.NewProducer(kafkaBrokers)
+
 	log.Println("Starting Cancel Consumer...")
-	consumer.StartCancelConsumer(kafkaBrokers, topic, group, redisReq, redisSeats, db)
+	consumer.StartCancelConsumer(kafkaBrokers, topic, group, redisReq, redisSeats, db, producer)
 
 }
 
