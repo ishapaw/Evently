@@ -55,10 +55,16 @@ func main() {
 	db := client.Database(dbName)
 	repo := repository.NewEventRepository(db)
 
-	redisClient := newRedisClient(mustGetEnv("REDIS_HOST"), mustGetEnv("REDIS_PORT"))
-	redisSeats := newRedisClient(mustGetEnv("REDIS_SEATS_HOST"), mustGetEnv("REDIS_SEATS_PORT"))
+	redisClient := newRedisClient(mustGetEnv("REDIS_HOST"), mustGetEnv("REDIS_PORT"), mustGetEnv("REDIS_PASSWORD"))
+	redisSeats := newRedisClient(mustGetEnv("REDIS_SEATS_HOST"), mustGetEnv("REDIS_SEATS_PORT"), mustGetEnv("REDIS_SEATS_PASSWORD"))
+	redisPrice := newRedisClient(
+		mustGetEnv("REDIS_PRICE_HOST"),
+		mustGetEnv("REDIS_PRICE_PORT"),
+		mustGetEnv("REDIS_PRICE_PASSWORD"),
 
-	eventService := service.NewEventService(repo, redisClient, redisSeats)
+	)
+
+	eventService := service.NewEventService(repo, redisClient, redisSeats, redisPrice)
 	eventController := controllers.NewEventController(eventService)
 
 	r := gin.Default()
@@ -84,9 +90,8 @@ func main() {
 	}
 }
 
-func newRedisClient(host, port string) *redis.Client {
+func newRedisClient(host, port, pass string) *redis.Client {
 	addr := host + ":" + port
-	pass := os.Getenv("REDIS_PASSWORD")
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     addr,
 		Password: pass,

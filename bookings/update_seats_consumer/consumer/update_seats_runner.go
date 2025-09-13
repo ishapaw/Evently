@@ -7,15 +7,19 @@ import (
 	"os/signal"
 	"syscall"
 
-	"bookings_consumer/kafka" 
-	"bookings_consumer/models" 
+	"update_seats_consumer/kafka"
+	"go.mongodb.org/mongo-driver/mongo"
+	"github.com/redis/go-redis/v9"
 )
 
-func StartBookingConsumer(
+
+func StartUpdateSeatsConsumer(
 	broker string,
 	topic string,
 	groupID string,
-	deps *models.ProcessorDeps,
+	redis *redis.Client,
+	mongoClient *mongo.Client,
+	producer *kafka.Producer,
 ) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -31,11 +35,9 @@ func StartBookingConsumer(
 	reader := kafka.NewReader(broker, topic, groupID)
 	defer reader.Close()
 
-	log.Printf("Kafka consumer started: topic=%s, groupID=%s", topic, groupID)
+	log.Printf("UpdateSeats Kafka consumer started: topic=%s, groupID=%s", topic, groupID)
 
-	// Start consuming with handler
 	reader.Start(ctx, func(key, value []byte) error {
-		processBookingMessage(ctx, value, deps)
-		return nil
+		return processUpdateSeatsMessage(ctx, key, value, redis, mongoClient, producer)
 	})
 }

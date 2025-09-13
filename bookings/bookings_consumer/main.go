@@ -3,6 +3,7 @@ package main
 import (
 	"bookings_consumer/consumer"
 	"bookings_consumer/kafka"
+	"bookings_consumer/models"
 	"context"
 	"fmt"
 	"log"
@@ -22,6 +23,12 @@ func main() {
 	redisReq := newRedisClient(mustGetEnv("REDIS_HOST"), mustGetEnv("REDIS_PORT"), mustGetEnv("REDIS_PASSWORD"))
 
 	redisSeats := newRedisClient(mustGetEnv("REDIS_SEATS_HOST"), mustGetEnv("REDIS_SEATS_PORT"), mustGetEnv("REDIS_SEATS_PASSWORD"))
+
+	redisPrice := newRedisClient(
+		mustGetEnv("REDIS_PRICE_HOST"),
+		mustGetEnv("REDIS_PRICE_PORT"),
+		mustGetEnv("REDIS_PRICE_PASSWORD"),
+	)
 
 	dbHost := mustGetEnv("POSTGRES_BOOKINGS_HOST")
 	dbPort := mustGetEnv("POSTGRES_BOOKINGS_PORT")
@@ -50,8 +57,16 @@ func main() {
 
 	producer := kafka.NewProducer(kafkaBrokers)
 
+	deps := models.ProcessorDeps{
+		RedisReq: redisReq,
+		RedisPrice: redisPrice,
+		RedisSeats: redisSeats,
+		DB: db,
+		Producer: producer,
+	}
 
-	consumer.StartBookingConsumer(kafkaBrokers, topic, group, redisReq, redisSeats, db,producer)
+
+	consumer.StartBookingConsumer(kafkaBrokers, topic, group, &deps)
 }
 
 func newRedisClient(host, port, password string) *redis.Client {
