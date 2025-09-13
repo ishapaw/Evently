@@ -15,6 +15,7 @@ import (
 type EventRepository interface {
 	Create(event *models.Event) (*models.Event, error)
 	FindByID(id string) (*models.Event, error)
+	GetPriceByID(id string) (float64, error)
 	FindAll(page int64, limit int64) ([]models.Event, error)
 	FindAllUpcomingEvents(page, limit int64) ([]models.UpcomingEvent, error)
 	FindAvailableTicketsByIDs(ids []string) (map[string]int64, error)
@@ -65,6 +66,32 @@ func (r *eventRepo) FindByID(id string) (*models.Event, error) {
 
 	return &event, nil
 }
+
+func (r *eventRepo) GetPriceByID(id string) (float64, error) {
+	eventID, err := primitive.ObjectIDFromHex(id)
+	if err != nil {
+		return 0, err
+	}
+
+	var result struct {
+		Price float64 `bson:"price"`
+	}
+
+	err = r.collection.FindOne(
+		r.ctx,
+		bson.M{"_id": eventID},
+	).Decode(&result)
+
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return 0, errors.New("event not found")
+		}
+		return 0, err
+	}
+
+	return result.Price, nil
+}
+
 
 func (r *eventRepo) FindAvailableTicketsByIDs(ids []string) (map[string]int64, error) {
     objectIDs := make([]primitive.ObjectID, 0, len(ids))

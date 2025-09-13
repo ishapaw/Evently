@@ -54,6 +54,23 @@ func (ec *EventController) GetEventByID(c *gin.Context) {
 	c.JSON(http.StatusOK, event)
 }
 
+func (ec *EventController) GetPriceByID(c *gin.Context) {
+
+	id := c.Param("id")
+	if id == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "event id is missing"})
+		return
+	}
+
+	price, err := ec.service.GetTicketPrice(id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "event not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"price": price})
+}
+
 func (ec *EventController) GetAllEvents(c *gin.Context) {
 	page, _ := strconv.ParseInt(c.DefaultQuery("page", "1"), 10, 64)
 	limit, _ := strconv.ParseInt(c.DefaultQuery("limit", "10"), 10, 64)
@@ -64,7 +81,7 @@ func (ec *EventController) GetAllEvents(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, events)
+	c.JSON(http.StatusOK, gin.H{"events": events})
 }
 
 func (ec *EventController) GetAllUpcomingEvents(c *gin.Context) {
@@ -79,7 +96,7 @@ func (ec *EventController) GetAllUpcomingEvents(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, events)
+	c.JSON(http.StatusOK, gin.H{"upcoming_events": events})
 }
 
 func (ec *EventController) UpdateEvent(c *gin.Context) {
@@ -104,4 +121,21 @@ func (ec *EventController) UpdateEvent(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "event updated successfully", "updatedEvent": updatedEvent})
+}
+
+func (ec *EventController) DeleteEvent(c *gin.Context) {
+
+	id := c.Param("id")
+	if id == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "event id is missing"})
+		return
+	}
+
+	err := ec.service.DeleteEvent(id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "event deleted successfully"})
 }

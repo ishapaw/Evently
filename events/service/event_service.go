@@ -18,22 +18,26 @@ import (
 type EventService interface {
 	CreateEvent(ctx context.Context, event *models.Event) (*models.Event, error)
 	GetEventByID(ctx context.Context, id string) (*models.Event, error)
+	GetTicketPrice(id string) (float64, error)
 	GetAllEvents(page, limit int64) ([]models.Event, error)
 	GetAllUpcomingEvents(ctx context.Context, page, limit int64) ([]models.UpcomingEvent, error)
 	UpdateEvent(ctx context.Context, id string, updates map[string]interface{}) (*models.Event, error)
+	DeleteEvent(id string) error
 }
 
 type eventService struct {
 	repo       repository.EventRepository
 	redis      *redis.Client
 	redisSeats *redis.Client
+	redisPrice *redis.Client
 }
 
-func NewEventService(r repository.EventRepository, redisClient *redis.Client, redisSeats *redis.Client) EventService {
+func NewEventService(r repository.EventRepository, redisClient *redis.Client, redisSeats *redis.Client, redisPrice *redis.Client) EventService {
 	return &eventService{
 		repo:       r,
 		redis:      redisClient,
 		redisSeats: redisSeats,
+		redisPrice: redisPrice,
 	}
 }
 
@@ -56,6 +60,7 @@ func (s *eventService) CreateEvent(ctx context.Context, event *models.Event) (*m
 
 	cacheKey := "event:" + createdEvent.ID.Hex()
 	s.redisSeats.Set(ctx, cacheKey, createdEvent.AvailableTickets, 0)
+	s.redisPrice.Set(ctx, cacheKey, createdEvent.Price, 0)
 
 	return createdEvent, nil
 }
@@ -94,6 +99,10 @@ func (s *eventService) getEventFromCache(ctx context.Context, id string) (*model
 
 }
 
+func (s *eventService) GetTicketPrice(id string) (float64, error) {
+	return s.repo.GetPriceByID(id)
+}
+
 func (s *eventService) GetEventByID(ctx context.Context, id string) (*models.Event, error) {
 	cacheKey := "event:" + id
 
@@ -113,7 +122,6 @@ func (s *eventService) GetEventByID(ctx context.Context, id string) (*models.Eve
 
 	return event, nil
 }
-
 
 func (s *eventService) GetAllEvents(page, limit int64) ([]models.Event, error) {
 	return s.repo.FindAll(page, limit)
@@ -135,7 +143,6 @@ func (s *eventService) getUpcomingEventsFromCache(ctx context.Context, cacheKey 
 	for i, ev := range events {
 		ids[i] = "event:" + ev.ID.Hex()
 	}
-
 
 	vals, err1 := s.redisSeats.MGet(ctx, ids...).Result()
 	if err1 == nil {
@@ -174,7 +181,6 @@ func (s *eventService) getUpcomingEventsFromCache(ctx context.Context, cacheKey 
 	return events, nil
 }
 
-
 func (s *eventService) GetAllUpcomingEvents(ctx context.Context, page, limit int64) ([]models.UpcomingEvent, error) {
 	today := time.Now().Format("2006-01-02")
 	cacheKey := fmt.Sprintf("events:upcoming:%s:page=%d:limit=%d", today, page, limit)
@@ -209,6 +215,11 @@ func (s *eventService) updateCache(ctx context.Context, id string, updates map[s
 		"total_tickets": true,
 		"price":         true,
 	}
+
+	if _, exists := updates["price"]; exists {
+		priceKey := "event:" + id
+        s.redisPrice.Set(ctx, priceKey, updates["price"], 0).Err()
+    }
 
 	shouldInvalidateUpcoming := false
 	for field := range updates {

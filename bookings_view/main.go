@@ -4,7 +4,9 @@ import (
 	"bookings_view/controllers"
 	"bookings_view/repository"
 	"bookings_view/service"
+	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -13,7 +15,14 @@ import (
 )
 
 func main() {
-	dsn := "host=postgres-bookings user=admin password=secret dbname=bookingsdb port=5432 sslmode=disable"
+	dbHost := mustGetEnv("POSTGRES_BOOKINGS_HOST")
+	dbPort := mustGetEnv("POSTGRES_BOOKINGS_PORT")
+	dbUser := mustGetEnv("POSTGRES_BOOKINGS_USER")
+	dbPass := mustGetEnv("POSTGRES_BOOKINGS_PASSWORD")
+	dbName := mustGetEnv("POSTGRES_BOOKINGS_DB")
+
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable",
+		dbHost, dbUser, dbPass, dbName, dbPort)
 
 	var db *gorm.DB
 	var err error
@@ -42,6 +51,19 @@ func main() {
 	r.GET("/api/v1/bookings/user/:user_id", bookingController.GetBookingsByUserID)
 
 	r.GET("/api/v1/bookings/event/:event_id", bookingController.GetBookingsByEventID)
-	r.Run(":8084")
-}
+
+	port := mustGetEnv("PORT_BOOKINGS_VIEW")
 	
+	log.Println("Bookings View Service running on port " + port)
+	if err := r.Run(":" + port); err != nil {
+		log.Fatal("Failed to start server:", err)
+	}
+}
+
+func mustGetEnv(key string) string {
+	value, ok := os.LookupEnv(key)
+	if !ok || value == "" {
+		log.Fatalf("Environment variable %s is required but not set", key)
+	}
+	return value
+}

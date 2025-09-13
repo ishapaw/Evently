@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"os"
 	"time"
 	"users/controllers"
 	"users/repository"
@@ -13,7 +14,13 @@ import (
 )
 
 func main() {
-	dsn := "host=postgres user=admin password=secret dbname=usersdb port=5432 sslmode=disable"
+	dbHost := mustGetEnv("DB_HOST")
+	dbPort := mustGetEnv("DB_PORT")
+	dbUser := mustGetEnv("DB_USER")
+	dbPass := mustGetEnv("DB_PASSWORD")
+	dbName := mustGetEnv("DB_NAME")
+
+	dsn := "host=" + dbHost + " user=" + dbUser + " password=" + dbPass + " dbname=" + dbName + " port=" + dbPort + " sslmode=disable"
 
 	var db *gorm.DB
 	var err error
@@ -40,6 +47,22 @@ func main() {
 	r.POST("/api/users/register", userController.Register)
 	r.POST("/api/users/login", userController.Login)
 
+	port := mustGetEnv("PORT_USERS")
+	log.Println("Users service running on port " + port)
+	if err := r.Run(":" + port); err != nil {
+		log.Fatal("Failed to start users service:", err)
+	}
 
-	r.Run(":8081")
+}
+
+func mustGetEnv(key string) string {
+	value, ok := lookupEnv(key)
+	if !ok || value == "" {
+		log.Fatalf("Environment variable %s is required but not set", key)
+	}
+	return value
+}
+
+func lookupEnv(key string) (string, bool) {
+	return os.LookupEnv(key)
 }
