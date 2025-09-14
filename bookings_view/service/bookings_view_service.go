@@ -8,8 +8,11 @@ import (
 
 type BookingsViewService interface {
 	GetBookingByID(id string) (*models.Booking, error)
-	GetBookingsByEventID(eventID string, limit, page int64) ([]models.Booking, error)
-	GetBookingsByUserID(userID string, limit, page int64) ([]models.Booking, error)
+	GetBookingsByEventID(eventID string, limit, page int64, status string) ([]models.Booking, error)
+	GetBookingByRequestID(reqID string) (*models.Booking, error)
+	GetBookingsByUserID(userID string, limit, page int64, status string) ([]models.Booking, error)
+	GetTotalBookings() (*models.BookingsCount, error) 
+	GetDailyBookingStats(eventID, startDate, endDate string) ([]models.DailyBookingStats, error)
 }
 
 type bookingsViewService struct {
@@ -33,10 +36,23 @@ func (s *bookingsViewService) GetBookingByID(id string) (*models.Booking, error)
 	return booking, nil
 }
 
-func (s *bookingsViewService) GetBookingsByEventID(eventID string, limit, page int64) ([]models.Booking, error) {
-	return s.repo.GetByEventID(eventID, limit, page)
+func (s *bookingsViewService) GetBookingByRequestID(reqID string) (*models.Booking, error) {
+	return s.repo.GetBookingByRequestID(reqID)
 }
 
-func (s *bookingsViewService) GetBookingsByUserID(userID string, limit, page int64) ([]models.Booking, error) {
-	return s.repo.GetByUserID(userID, limit, page)
+func (s *bookingsViewService) GetBookingsByEventID(eventID string, limit, page int64, status string) ([]models.Booking, error) {
+	return s.repo.GetByEventID(eventID, limit, page, status)
 }
+
+func (s *bookingsViewService) GetBookingsByUserID(userID string, limit, page int64, status string) ([]models.Booking, error) {
+	return s.repo.GetByUserID(userID, limit, page, status)
+}
+
+func (s *bookingsViewService) GetTotalBookings() (*models.BookingsCount, error) {
+	return s.repo.GetTotalBookings()
+}
+
+func (s *bookingsViewService) GetDailyBookingStats(eventID, startDate, endDate string) ([]models.DailyBookingStats, error) {
+	return s.repo.GetDailyBookingStats(eventID, startDate, endDate)
+}
+

@@ -133,6 +133,7 @@ func stateHandlerFunc2(ctx context.Context, req models.KafkaEvent, deps *models.
 			UserID:    req.UserID,
 			Price:     price * float64(req.Seats),
 			Seats:     req.Seats,
+			Status: "confirmed",
 		}
 
 		return tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&booking).Error

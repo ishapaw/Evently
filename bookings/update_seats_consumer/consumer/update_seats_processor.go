@@ -51,9 +51,9 @@ func processUpdateSeatsMessage(ctx context.Context, key []byte, value []byte, re
 	var update bson.M
 
 	if msg.Operation == "add" {
-		update = bson.M{"$inc": bson.M{"available_tickets": msg.Seats}}
+		update = bson.M{"$inc": bson.M{"available_seats": msg.Seats}}
 	} else if msg.Operation == "subtract" {
-		update = bson.M{"$inc": bson.M{"available_tickets": -msg.Seats}}
+		update = bson.M{"$inc": bson.M{"available_seats": -msg.Seats}}
 	} else {
 		return fmt.Errorf("Invalid operation type: %s for requestId %s", msg.Operation, string(key))
 	}
@@ -74,7 +74,7 @@ func processUpdateSeatsMessage(ctx context.Context, key []byte, value []byte, re
 		return err
 	}
 
-	log.Printf("Updated seats for event %s: -%d seats", msg.EventId, msg.Seats)
+	log.Printf("Updated seats for event %v", msg)
 
 	return nil
 }

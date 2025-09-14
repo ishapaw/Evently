@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bookings_view/auth"
 	"bookings_view/controllers"
 	"bookings_view/repository"
 	"bookings_view/service"
@@ -46,14 +47,23 @@ func main() {
 
 	r := gin.Default()
 
-	r.GET("/api/v1/bookings/:id", bookingController.GetBookingByID)
+	api := r.Group("/api/v1")
+	{
+		api.GET("/bookings/:id", bookingController.GetBookingByID)
+		api.GET("/bookings/user/:user_id", bookingController.GetBookingsByUserID)
+		api.GET("/bookings/event/:event_id", bookingController.GetBookingsByEventID)
+		api.GET("/bookings/request/:request_id", bookingController.GetBookingByRequestID)
 
-	r.GET("/api/v1/bookings/user/:user_id", bookingController.GetBookingsByUserID)
-
-	r.GET("/api/v1/bookings/event/:event_id", bookingController.GetBookingsByEventID)
+		admin := api.Group("/bookings/analytics")
+		admin.Use(auth.AdminOnly())
+		{
+			admin.GET("/total-bookings", bookingController.GetTotalBookings)
+			admin.GET("/dailyStats", bookingController.GetDailyBookingStats)
+		}
+	}
 
 	port := mustGetEnv("PORT_BOOKINGS_VIEW")
-	
+
 	log.Println("Bookings View Service running on port " + port)
 	if err := r.Run(":" + port); err != nil {
 		log.Fatal("Failed to start server:", err)

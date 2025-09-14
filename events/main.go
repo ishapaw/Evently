@@ -79,6 +79,10 @@ func main() {
 		{
 			admin.POST("/create", eventController.CreateEvent)
 			admin.PUT("/:id", eventController.UpdateEvent)
+			admin.GET("/analytics/capacityUtil", eventController.GetCapacityUtilization)
+			admin.GET("/analytics/mostBooked", eventController.GetMostBookedEvents)
+			admin.GET("/analytics/mostPopular", eventController.GetMostPopularEvents)
+
 		}
 	}
 

@@ -20,7 +20,7 @@ func main() {
 	topic := mustGetEnv("TOPIC_BOOKINGS_REQUESTS")
 	group := mustGetEnv("BOOKINGS_CONSUMER_GROUP")
 
-	redisReq := newRedisClient(mustGetEnv("REDIS_HOST"), mustGetEnv("REDIS_PORT"), mustGetEnv("REDIS_PASSWORD"))
+	redisReq := newRedisClient(mustGetEnv("REDIS_REQUESTS_HOST"), mustGetEnv("REDIS_REQUESTS_PORT"), mustGetEnv("REDIS_REQUESTS_PASSWORD"))
 
 	redisSeats := newRedisClient(mustGetEnv("REDIS_SEATS_HOST"), mustGetEnv("REDIS_SEATS_PORT"), mustGetEnv("REDIS_SEATS_PASSWORD"))
 

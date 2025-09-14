@@ -30,7 +30,7 @@ func (p *CancelProcessor) ProcessCancelBookingMessage(ctx context.Context, key, 
 			}
 
 			log.Printf("Request %s not in Redis, cancelling at DB level", msg.BookingRequestId)
-			return p.cancelAtDB(ctx, msg)
+			return p.cancelAtDB(ctx, msg, key)
 
 		} else if err != nil {
 
@@ -53,7 +53,6 @@ func (p *CancelProcessor) ProcessCancelBookingMessage(ctx context.Context, key, 
 
 		case "success":
 			// already success -> cancel at DB
-			p.publishSeatsUpdate(string(key), msg)
 
 			err = p.redisReq.Set(ctx, reqKey, "cancelled", 0).Err()
 
@@ -64,7 +63,7 @@ func (p *CancelProcessor) ProcessCancelBookingMessage(ctx context.Context, key, 
 
 			log.Printf("Request %s already success, deleting booking", msg.BookingRequestId)
 
-			return p.cancelAtDB(ctx, msg)
+			return p.cancelAtDB(ctx, msg, key)
 
 		case "failed", "cancelled":
 			log.Printf("Request %s already in terminal state: %s", msg.BookingRequestId, state)
@@ -74,9 +73,9 @@ func (p *CancelProcessor) ProcessCancelBookingMessage(ctx context.Context, key, 
 	}
 
 	if msg.BookingId != "" {
-		log.Printf("Processing cancel by BookingID: %s", msg.BookingId)
 
-		return p.cancelAtDB(ctx, msg)
+		log.Printf("Processing cancel by BookingID: %s", msg.BookingId)
+		return p.cancelAtDB(ctx, msg, key)
 	}
 
 	log.Printf("Cancel message missing bookingRequestId and bookingId")
@@ -105,7 +104,7 @@ func (p *CancelProcessor) publishSeatsUpdate(requestId string, msg models.KafkaC
 	if err != nil {
 		log.Printf("Failed to publish seats update event: %v", err)
 	} else {
-		log.Printf("Published seats update for event %s", msg.EventId, msg.Seats)
+		log.Printf("Published seats update event %v", msg)
 	}
 
 	return err
@@ -113,7 +112,7 @@ func (p *CancelProcessor) publishSeatsUpdate(requestId string, msg models.KafkaC
 
 
 
-func (p *CancelProcessor) cancelAtDB(ctx context.Context, msg models.KafkaCancelEvent) error {
+func (p *CancelProcessor) cancelAtDB(ctx context.Context, msg models.KafkaCancelEvent, key []byte) error {
 	seatsKey := "event:" + msg.EventId
 
 	if msg.BookingId != "" {
@@ -132,6 +131,8 @@ func (p *CancelProcessor) cancelAtDB(ctx context.Context, msg models.KafkaCancel
 	}
 
 	if msg.Seats > 0 {
+		p.publishSeatsUpdate(string(key), msg)
+
 		if err := p.redisSeats.IncrBy(ctx, seatsKey, int64(msg.Seats)).Err(); err != nil {
 			log.Printf("Error incrementing seats for requestID %s: %v", msg.BookingRequestId, err)
 			return err

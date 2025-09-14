@@ -8,7 +8,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// ReverseProxy forwards requests to a target service
 func ReverseProxy(target string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		remote, err := url.Parse(target)
