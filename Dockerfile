@@ -4,39 +4,36 @@ FROM golang:1.24 AS builder
 WORKDIR /app
 COPY . .
 
-# Build users service
+# Build services
 WORKDIR /app/users
-RUN go mod tidy && go build -o /bin/users
+RUN go mod tidy && go build -o /app/bin/users
 
-# Build bookings service
 WORKDIR /app/bookings_view
-RUN go mod tidy && go build -o /bin/bookings_view
+RUN go mod tidy && go build -o /app/bin/bookings_view
 
-# Build events service
 WORKDIR /app/events
-RUN go mod tidy && go build -o /bin/events
+RUN go mod tidy && go build -o /app/bin/events
 
-# Build gateway service
 WORKDIR /app/gateway
-RUN go mod tidy && go build -o /bin/gateway
+RUN go mod tidy && go build -o /app/bin/gateway
 
-# Build consumers (example: bookings_consumer, cancel_consumer, update_seats_consumer)
+# Build consumers
 WORKDIR /app/bookings/bookings_consumer
-RUN go mod tidy && go build -o /bin/bookings_consumer
+RUN go mod tidy && go build -o /app/bin/bookings_consumer
 
 WORKDIR /app/bookings/cancel_consumer
-RUN go mod tidy && go build -o /bin/cancel_consumer
+RUN go mod tidy && go build -o /app/bin/cancel_consumer
 
 WORKDIR /app/bookings/update_seats_consumer
-RUN go mod tidy && go build -o /bin/update_seats_consumer
+RUN go mod tidy && go build -o /app/bin/update_seats_consumer
 
 # Stage 2: runtime
-FROM debian:bookworm-slim
+FROM ubuntu:24.04
 
 WORKDIR /app
 
 # Copy binaries
-COPY --from=builder /bin/* /bin/
+COPY --from=builder /app/bin/* /app/bin/
 
 # Install supervisor
 RUN apt-get update && apt-get install -y supervisor && rm -rf /var/lib/apt/lists/*
