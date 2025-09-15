@@ -32,8 +32,11 @@ FROM ubuntu:24.04
 
 WORKDIR /app
 
-# Copy binaries
-COPY --from=builder /app/bin/* /app/bin/
+# Ensure bin folder exists
+RUN mkdir -p /app/bin
+
+# Copy binaries from builder
+COPY --from=builder /app/bin/* /bin/
 
 # Install supervisor
 RUN apt-get update && apt-get install -y supervisor && rm -rf /var/lib/apt/lists/*
