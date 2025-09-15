@@ -4,8 +4,8 @@ import (
 	"errors"
 	"os"
 	"time"
-	"users/models"
-	"users/repository"
+	"evently/users/models"
+	"evently/users/repository"
 
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"

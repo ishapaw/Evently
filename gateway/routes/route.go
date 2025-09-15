@@ -9,9 +9,9 @@ import (
 	"gateway/kafka"
 	"gateway/proxy"
 
-	"users/service"
-	"users/repository"
-	"users/controllers"
+	"evently/users/service"
+	"evently/users/repository"
+	"evently/users/controllers"
 
 	"gorm.io/gorm"
 

@@ -1,4 +1,4 @@
-module users
+module evently/users
 
 go 1.24.0
 

@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"users/models"
-	"users/service"
+	"evently/users/models"
+	"evently/users/service"
 
 	"github.com/gin-gonic/gin"
 )

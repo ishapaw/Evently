@@ -1,7 +1,7 @@
 package repository
 
 import (
-	"users/models"
+	"evently/users/models"
 	"gorm.io/gorm"
 )
 
