@@ -255,6 +255,8 @@ services:
       USERS_SERVICE_URL: http://users-service:8081
       EVENTS_SERVICE_URL: http://events-service:8082
       KAFKA_BROKER: kafka:9092 
+      REDIS_RATE_LIMITER_HOST: redis-rate-limiter
+      REDIS_RATE_LIMITER_PORT: 6379
     networks:
       - evently-net
 
@@ -274,7 +276,6 @@ services:
       interval: 1s
       timeout: 3s
       retries: 5
-
 
   redis-seats:
     image: redis:7
@@ -340,6 +341,22 @@ services:
       timeout: 3s
       retries: 5
 
+  redis-rate-limiter:
+    image: redis:7
+    container_name: redis-rate-limiter
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6384:6379"
+    volumes:
+      - redis_rate_limiter_data:/data
+    networks:
+      - evently-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 1s
+      timeout: 3s
+      retries: 5
+
 
 volumes:
   postgres_data:
@@ -350,6 +367,7 @@ volumes:
   redis_requests_data:
   redis_price_data:
   redis_updated_seats_data:
+  redis_rate_limiter_data:
 
 networks:
   evently-net:

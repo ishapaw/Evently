@@ -5,12 +5,13 @@ import (
 	"log"
 	"net/http"
 
-	"gateway/auth"
+	"gateway/middleware"
 	"gateway/kafka"
 	"gateway/proxy"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 )
 
 var producer *kafka.Producer
@@ -69,7 +70,7 @@ func HandleBookingRequest(c *gin.Context) {
 	c.JSON(http.StatusAccepted, gin.H{"status": "request queued", "request_id" : body["request_id"]})
 }
 
-func RegisterRoutes(r *gin.Engine, prod *kafka.Producer) {
+func RegisterRoutes(r *gin.Engine, prod *kafka.Producer, redis *redis.Client) {
 	producer = prod
 	log.Println("Registering routes")
 
@@ -78,8 +79,11 @@ func RegisterRoutes(r *gin.Engine, prod *kafka.Producer) {
 	api.Any("/users/*path", proxy.ReverseProxy("http://users-service:8081"))
 
 	protected := api.Group("/v1")
-	protected.Use(auth.AuthMiddleware())
+	protected.Use(middleware.AuthMiddleware())
+
+	protected.Use(middleware.RateLimitMiddleware(redis))
 	{
+		
 		protected.Any("/events/*path", proxy.ReverseProxy("http://events-service:8082"))
 		protected.Any("/bookings/*path", func(c *gin.Context) {
 			method := c.Request.Method

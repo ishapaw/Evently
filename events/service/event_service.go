@@ -60,9 +60,10 @@ func (s *eventService) CreateEvent(ctx context.Context, event *models.Event) (*m
 		s.redis.Del(ctx, keys...)
 	}
 
-	cacheKey := "event:" + createdEvent.ID.Hex()
-	s.redisSeats.Set(ctx, cacheKey, createdEvent.AvailableSeats, 0)
-	s.redisPrice.Set(ctx, cacheKey, createdEvent.Price, 0)
+	seatsKey := "seatsLeft:" + createdEvent.ID.Hex()
+	priceKey := "price:" + createdEvent.ID.Hex()
+	s.redisSeats.Set(ctx, seatsKey, createdEvent.AvailableSeats, 0)
+	s.redisPrice.Set(ctx, priceKey, createdEvent.Price, 0)
 
 	return createdEvent, nil
 }
@@ -81,7 +82,7 @@ func (s *eventService) getEventFromCache(ctx context.Context, id string) (*model
 		return nil, jsonErr
 	}
 
-	seatKey := "event:" + id
+	seatKey := "seatsLeft:" + id
 
 	availableSeatsStr, err := s.redisSeats.Get(ctx, seatKey).Result()
 	if err != nil {
@@ -139,7 +140,7 @@ func (s *eventService) getUpcomingEventsFromCache(ctx context.Context, cacheKey 
 
 	ids := make([]string, len(events))
 	for i, ev := range events {
-		ids[i] = "event:" + ev.ID.Hex()
+		ids[i] = "seatsLeft:" + ev.ID.Hex()
 	}
 
 	vals, err1 := s.redisSeats.MGet(ctx, ids...).Result()
@@ -153,7 +154,7 @@ func (s *eventService) getUpcomingEventsFromCache(ctx context.Context, cacheKey 
 		}
 
 		for i, ev := range events {
-			key := "event:" + ev.ID.Hex()
+			key := "seatsLeft:" + ev.ID.Hex()
 			if seats, ok := seatMap[key]; ok {
 				events[i].AvailableSeats = int64(seats)
 			}
@@ -167,7 +168,7 @@ func (s *eventService) getUpcomingEventsFromCache(ctx context.Context, cacheKey 
 		}
 
 		for i, ev := range events {
-			key := "event:" + ev.ID.Hex()
+			key := "seatsLeft:" + ev.ID.Hex()
 			if avail, ok := availMap[key]; ok {
 				events[i].AvailableSeats = avail
 			}
@@ -215,7 +216,7 @@ func (s *eventService) updateCache(ctx context.Context, id string, updates map[s
 	}
 
 	if _, exists := updates["price"]; exists {
-		priceKey := "event:" + id
+		priceKey := "price:" + id
         s.redisPrice.Set(ctx, priceKey, updates["price"], 0).Err()
     }
 

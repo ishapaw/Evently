@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"os"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -17,7 +18,7 @@ func (p *CancelProcessor) ProcessCancelBookingMessage(ctx context.Context, key, 
 	}
 
 	if msg.BookingRequestId != "" {
-		reqKey := "req:" + msg.BookingRequestId
+		reqKey := "bookingRequest:" + msg.BookingRequestId
 
 		state, err := p.redisReq.Get(ctx, reqKey).Result()
 		if err == redis.Nil {
@@ -84,8 +85,8 @@ func (p *CancelProcessor) ProcessCancelBookingMessage(ctx context.Context, key, 
 
 func (p *CancelProcessor) publishSeatsUpdate(requestId string, msg models.KafkaCancelEvent) error {
 	updateEvent := models.KafkaUpdateEvent{
-		EventId: msg.EventId,
-		Seats:   msg.Seats,
+		EventId:   msg.EventId,
+		Seats:     msg.Seats,
 		Operation: "add",
 	}
 
@@ -95,8 +96,10 @@ func (p *CancelProcessor) publishSeatsUpdate(requestId string, msg models.KafkaC
 		return err
 	}
 
+	topic, _ := os.LookupEnv("UPDATE_SEATS_REQUESTS")
+
 	err = p.producer.Publish(
-		"update.seats",
+		topic,
 		[]byte(requestId),
 		payload,
 	)
@@ -110,20 +113,18 @@ func (p *CancelProcessor) publishSeatsUpdate(requestId string, msg models.KafkaC
 	return err
 }
 
-
-
 func (p *CancelProcessor) cancelAtDB(ctx context.Context, msg models.KafkaCancelEvent, key []byte) error {
-	seatsKey := "event:" + msg.EventId
+	seatsKey := "seatsLeft:" + msg.EventId
 
 	if msg.BookingId != "" {
-		if err := p.db.Model(&models.Booking{}).Where("id = ?", msg.BookingId).Update("status","cancelled").Error; err != nil {
+		if err := p.db.Model(&models.Booking{}).Where("id = ?", msg.BookingId).Update("status", "cancelled").Error; err != nil {
 			log.Printf("Error marking booking %s as cancelled: %v", msg.BookingId, err)
 			return err
 		}
 		log.Printf("Deleted booking %s from DB", msg.BookingId)
 
-	} else if msg.BookingRequestId != ""{
-		if err := p.db.Model(&models.Booking{}).Where("request_id = ?", msg.BookingRequestId).Update("status","cancelled").Error; err != nil {
+	} else if msg.BookingRequestId != "" {
+		if err := p.db.Model(&models.Booking{}).Where("request_id = ?", msg.BookingRequestId).Update("status", "cancelled").Error; err != nil {
 			log.Printf("Error marking booking with reqId %s as cancelled : %v", msg.BookingRequestId, err)
 			return err
 		}
