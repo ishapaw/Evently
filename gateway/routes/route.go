@@ -76,7 +76,8 @@ func RegisterRoutes(r *gin.Engine, prod *kafka.Producer, redis *redis.Client) {
 
 	api := r.Group("/api")
 
-	api.Any("/users/*path", proxy.ReverseProxy("http://127.0.0.1:8081"))
+	api.POST("/users/register", proxy.ReverseProxy("http://127.0.0.1:8081/api/users/register"))
+api.POST("/users/login", proxy.ReverseProxy("http://127.0.0.1:8081/api/users/login"))
 
 	protected := api.Group("/v1")
 	protected.Use(middleware.AuthMiddleware())
