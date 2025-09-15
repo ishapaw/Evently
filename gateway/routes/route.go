@@ -76,7 +76,7 @@ func RegisterRoutes(r *gin.Engine, prod *kafka.Producer, redis *redis.Client) {
 
 	api := r.Group("/api")
 
-	api.Any("/users/*path", proxy.ReverseProxy("http://users-service:8081"))
+	api.Any("/users/*path", proxy.ReverseProxy("http://127.0.0.1:8081"))
 
 	protected := api.Group("/v1")
 	protected.Use(middleware.AuthMiddleware())
@@ -84,13 +84,13 @@ func RegisterRoutes(r *gin.Engine, prod *kafka.Producer, redis *redis.Client) {
 	protected.Use(middleware.RateLimitMiddleware(redis))
 	{
 		
-		protected.Any("/events/*path", proxy.ReverseProxy("http://events-service:8082"))
+		protected.Any("/events/*path", proxy.ReverseProxy("http://127.0.0.1:8082"))
 		protected.Any("/bookings/*path", func(c *gin.Context) {
 			method := c.Request.Method
 			log.Println("Received /bookings request, method:", method)
 
 			if method == http.MethodGet {
-				proxy.ReverseProxy("http://bookings-view-service:8084")(c)
+				proxy.ReverseProxy("http://127.0.0.1:8084")(c)
 			} else if method == http.MethodPost || method == http.MethodDelete {
 				HandleBookingRequest(c)
 			} else {
