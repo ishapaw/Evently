@@ -2,6 +2,8 @@ package controllers
 
 import (
 	"net/http"
+	"os"
+	"strings"
 	"users/models"
 	"users/service"
 
@@ -23,6 +25,14 @@ func (uc *UserController) Register(c *gin.Context) {
 		return
 	}
 
+	adminSecret := c.Query("admin_secret")
+	value, _ := os.LookupEnv("ADMIN_SECRET")
+
+	if strings.ToLower(user.Role) == "admin" && adminSecret != value {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid admin secret: you are not authorized to register as an admin"})
+		return
+	}
+
 	if err := uc.service.Register(&user); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -30,7 +40,6 @@ func (uc *UserController) Register(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, gin.H{"message": "user registered successfully"})
 }
-
 
 func (uc *UserController) Login(c *gin.Context) {
 	var creds struct {

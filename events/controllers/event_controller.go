@@ -54,23 +54,6 @@ func (ec *EventController) GetEventByID(c *gin.Context) {
 	c.JSON(http.StatusOK, event)
 }
 
-func (ec *EventController) GetPriceByID(c *gin.Context) {
-
-	id := c.Param("id")
-	if id == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "event id is missing"})
-		return
-	}
-
-	price, err := ec.service.GetTicketPrice(id)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "event not found"})
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"price": price})
-}
-
 func (ec *EventController) GetAllEvents(c *gin.Context) {
 	page, _ := strconv.ParseInt(c.DefaultQuery("page", "1"), 10, 64)
 	limit, _ := strconv.ParseInt(c.DefaultQuery("limit", "10"), 10, 64)
@@ -138,4 +121,53 @@ func (ec *EventController) DeleteEvent(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "event deleted successfully"})
+}
+
+func (ec *EventController) GetCapacityUtilization(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	eventId := c.Query("event_id")
+	page, _ := strconv.ParseInt(c.DefaultQuery("page", "1"), 10, 64)
+	limit, _ := strconv.ParseInt(c.DefaultQuery("limit", "100"), 10, 64)
+
+	analytics, err := ec.service.GetCapacityUtilization(ctx, eventId, page, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, analytics)
+
+}
+
+func (ec *EventController) GetMostBookedEvents(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	limit, _ := strconv.ParseInt(c.DefaultQuery("limit", "10"), 10, 64)
+
+
+	analytics, err := ec.service.GetMostBookedEvents(ctx, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, analytics)
+
+}
+
+func (ec *EventController) GetMostPopularEvents(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	limit, _ := strconv.ParseInt(c.DefaultQuery("limit", "10"), 10, 64)
+
+
+	analytics, err := ec.service.GetMostPopularEvents(ctx, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, analytics)
+
 }

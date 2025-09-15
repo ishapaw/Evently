@@ -18,10 +18,12 @@ import (
 type EventService interface {
 	CreateEvent(ctx context.Context, event *models.Event) (*models.Event, error)
 	GetEventByID(ctx context.Context, id string) (*models.Event, error)
-	GetTicketPrice(id string) (float64, error)
 	GetAllEvents(page, limit int64) ([]models.Event, error)
 	GetAllUpcomingEvents(ctx context.Context, page, limit int64) ([]models.UpcomingEvent, error)
 	UpdateEvent(ctx context.Context, id string, updates map[string]interface{}) (*models.Event, error)
+	GetCapacityUtilization(ctx context.Context, eventID string, page, limit int64) ([]models.CapacityUtilization, error)
+	GetMostBookedEvents(ctx context.Context, limit int64) ([]models.MostBookedEvent, error)
+	GetMostPopularEvents(ctx context.Context, limit int64) ([]models.MostPopularEvent, error)
 	DeleteEvent(id string) error
 }
 
@@ -58,9 +60,10 @@ func (s *eventService) CreateEvent(ctx context.Context, event *models.Event) (*m
 		s.redis.Del(ctx, keys...)
 	}
 
-	cacheKey := "event:" + createdEvent.ID.Hex()
-	s.redisSeats.Set(ctx, cacheKey, createdEvent.AvailableTickets, 0)
-	s.redisPrice.Set(ctx, cacheKey, createdEvent.Price, 0)
+	seatsKey := "seatsLeft:" + createdEvent.ID.Hex()
+	priceKey := "price:" + createdEvent.ID.Hex()
+	s.redisSeats.Set(ctx, seatsKey, createdEvent.AvailableSeats, 0)
+	s.redisPrice.Set(ctx, priceKey, createdEvent.Price, 0)
 
 	return createdEvent, nil
 }
@@ -79,28 +82,24 @@ func (s *eventService) getEventFromCache(ctx context.Context, id string) (*model
 		return nil, jsonErr
 	}
 
-	seatKey := "event:" + id
+	seatKey := "seatsLeft:" + id
 
 	availableSeatsStr, err := s.redisSeats.Get(ctx, seatKey).Result()
 	if err != nil {
-		tickets, err1 := s.repo.FindAvailableTicketsByIDs([]string{id})
+		seats, err1 := s.repo.FindAvailableSeatsForIds([]string{id})
 		if err1 != nil {
 			return nil, err1
 		} else {
-			ev.AvailableTickets = tickets[id]
+			ev.AvailableSeats = seats[id]
 		}
 	} else {
 		availableSeats, _ := strconv.Atoi(availableSeatsStr)
-		ev.AvailableTickets = int64(availableSeats)
+		ev.AvailableSeats= int64(availableSeats)
 	}
 
 	s.redis.Expire(ctx, cacheKey, 10*time.Minute)
 	return &ev, nil
 
-}
-
-func (s *eventService) GetTicketPrice(id string) (float64, error) {
-	return s.repo.GetPriceByID(id)
 }
 
 func (s *eventService) GetEventByID(ctx context.Context, id string) (*models.Event, error) {
@@ -141,7 +140,7 @@ func (s *eventService) getUpcomingEventsFromCache(ctx context.Context, cacheKey 
 
 	ids := make([]string, len(events))
 	for i, ev := range events {
-		ids[i] = "event:" + ev.ID.Hex()
+		ids[i] = "seatsLeft:" + ev.ID.Hex()
 	}
 
 	vals, err1 := s.redisSeats.MGet(ctx, ids...).Result()
@@ -155,23 +154,23 @@ func (s *eventService) getUpcomingEventsFromCache(ctx context.Context, cacheKey 
 		}
 
 		for i, ev := range events {
-			key := "event:" + ev.ID.Hex()
+			key := "seatsLeft:" + ev.ID.Hex()
 			if seats, ok := seatMap[key]; ok {
-				events[i].AvailableTickets = int64(seats)
+				events[i].AvailableSeats = int64(seats)
 			}
 		}
 
 	} else {
 
-		availMap, err := s.repo.FindAvailableTicketsByIDs(ids)
+		availMap, err := s.repo.FindAvailableSeatsForIds(ids)
 		if err != nil {
 			return nil, err
 		}
 
 		for i, ev := range events {
-			key := "event:" + ev.ID.Hex()
+			key := "seatsLeft:" + ev.ID.Hex()
 			if avail, ok := availMap[key]; ok {
-				events[i].AvailableTickets = avail
+				events[i].AvailableSeats = avail
 			}
 		}
 
@@ -202,7 +201,7 @@ func (s *eventService) GetAllUpcomingEvents(ctx context.Context, page, limit int
 }
 
 func (s *eventService) updateCache(ctx context.Context, id string, updates map[string]interface{}) {
-	_, ok := updates["available_tickets"]
+	_, ok := updates["available_seats"]
 
 	if len(updates) > 1 || !ok {
 		s.redis.Del(ctx, "event:"+id)
@@ -212,12 +211,12 @@ func (s *eventService) updateCache(ctx context.Context, id string, updates map[s
 		"title":         true,
 		"venue":         true,
 		"date":          true,
-		"total_tickets": true,
+		"total_seats": true,
 		"price":         true,
 	}
 
 	if _, exists := updates["price"]; exists {
-		priceKey := "event:" + id
+		priceKey := "price:" + id
         s.redisPrice.Set(ctx, priceKey, updates["price"], 0).Err()
     }
 
@@ -257,6 +256,18 @@ func (s *eventService) UpdateEvent(ctx context.Context, id string, updates map[s
 	return updatedEvent, nil
 }
 
+func (s *eventService) GetCapacityUtilization(ctx context.Context, eventID string, page, limit int64) ([]models.CapacityUtilization, error) {
+	return s.repo.GetCapacityUtilization(ctx, eventID, page, limit)
+}
+
+func (s *eventService) GetMostBookedEvents(ctx context.Context, limit int64) ([]models.MostBookedEvent, error) {
+	return s.repo.GetMostBookedEvents(ctx, limit)
+}
+
+func (s *eventService) GetMostPopularEvents(ctx context.Context, limit int64) ([]models.MostPopularEvent, error) {
+	return s.repo.GetMostPopularEvents(ctx, limit)
+}
+
 func (s *eventService) DeleteEvent(id string) error {
 	return s.repo.Delete(id)
 }
@@ -279,8 +290,12 @@ func validate(e *models.Event) error {
 		return errors.New("price must be greater than 0")
 	}
 
-	if e.TotalTickets == 0 {
-		return errors.New("total tickets must be greater than 0")
+	if e.TotalSeats == 0 || e.AvailableSeats == 0{
+		return errors.New("total and available seats must be greater than 0")
+	}
+
+	if e.TotalSeats < e.AvailableSeats {
+		return errors.New("total seats must be >= available seats")
 	}
 
 	return nil
@@ -321,14 +336,15 @@ func validateUpdates(updates map[string]interface{}) error {
 				return fmt.Errorf("price must be a positive number")
 			}
 
-		case "total_tickets":
-			tickets, ok := value.(float64)
-			if !ok || tickets <= 0 {
-				return fmt.Errorf("total_tickets must be greater than 0")
+		case "total_seats":
+			seats, ok := value.(float64)
+			if !ok || seats <= 0 {
+				return fmt.Errorf("total_seats must be greater than 0")
 			}
 
-			updates[key] = int(tickets)
+			updates[key] = int(seats)
 		}
 	}
 	return nil
 }
+

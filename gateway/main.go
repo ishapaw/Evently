@@ -7,6 +7,9 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
+	"context"
+
 )
 
 func main() {
@@ -23,7 +26,14 @@ func main() {
 		log.Println("Kafka producer initialized for broker kafka:9092")
 	}
 
-	routes.RegisterRoutes(r, producer)
+	redis := newRedisClient(
+		mustGetEnv("REDIS_RATE_LIMITER_HOST"),
+		mustGetEnv("REDIS_RATE_LIMITER_PORT"),
+		mustGetEnv("REDIS_RATE_LIMITER_PASSWORD"),
+
+	)
+
+	routes.RegisterRoutes(r, producer, redis)
 
 	port := mustGetEnv("PORT_GATEWAY")
 	log.Println("Gateway service running on port " + port)
@@ -31,6 +41,22 @@ func main() {
 		log.Fatal("Failed to start Gateway service:", err)
 	}
 
+}
+
+func newRedisClient(host, port, pass string) *redis.Client {
+	addr := host + ":" + port
+	rdb := redis.NewClient(&redis.Options{
+		Addr:     addr,
+		Password: pass,
+		DB:       0,
+	})
+
+	ctx := context.Background()
+	if err := rdb.Ping(ctx).Err(); err != nil {
+		log.Fatal("Failed to connect to Redis:", err)
+	}
+	log.Println("Connected to Redis at", addr)
+	return rdb
 }
 
 func mustGetEnv(key string) string {

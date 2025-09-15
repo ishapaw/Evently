@@ -3,7 +3,6 @@ package service
 import (
 	"errors"
 	"os"
-	"strings"
 	"time"
 	"users/models"
 	"users/repository"
@@ -27,15 +26,9 @@ func NewUserService(r repository.UserRepository) UserService {
 
 func (s *userService) Register(user *models.User) error {
 
-	//validation
-
 	existing, _ := s.repo.FindByEmail(user.Email)
 	if existing != nil {
 		return errors.New("email already registered")
-	}
-
-	if strings.ToLower(user.Role) == "admin" {
-		return errors.New("can't register as admin")
 	}
 
 	hashed, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)

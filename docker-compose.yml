@@ -18,10 +18,14 @@ services:
       - POSTGRES_BOOKINGS_PASSWORD=secret
       - POSTGRES_BOOKINGS_DB=bookingsdb
     depends_on:
-      - kafka
-      - redis-requests
-      - redis-seats
-      - postgres-bookings
+      kafka:
+        condition: service_healthy
+      redis-requests:
+        condition: service_healthy
+      redis-seats:
+        condition: service_healthy
+      postgres-bookings:
+        condition: service_healthy 
     restart: always
     networks:
       - evently-net
@@ -44,10 +48,14 @@ services:
       - POSTGRES_BOOKINGS_PASSWORD=secret
       - POSTGRES_BOOKINGS_DB=bookingsdb
     depends_on:
-      - kafka
-      - redis-requests
-      - redis-seats
-      - postgres-bookings
+      kafka:
+        condition: service_healthy
+      redis-requests:
+        condition: service_healthy
+      redis-seats:
+        condition: service_healthy
+      postgres-bookings:
+        condition: service_healthy 
     restart: always
     networks:
       - evently-net
@@ -108,6 +116,11 @@ services:
       - "29092:29092"   
     networks:
       - evently-net
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 
 
@@ -242,6 +255,8 @@ services:
       USERS_SERVICE_URL: http://users-service:8081
       EVENTS_SERVICE_URL: http://events-service:8082
       KAFKA_BROKER: kafka:9092 
+      REDIS_RATE_LIMITER_HOST: redis-rate-limiter
+      REDIS_RATE_LIMITER_PORT: 6379
     networks:
       - evently-net
 
@@ -256,7 +271,11 @@ services:
       - redis_data:/data
     networks:
       - evently-net
-
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 1s
+      timeout: 3s
+      retries: 5
 
   redis-seats:
     image: redis:7
@@ -268,6 +287,11 @@ services:
       - redis_seats_data:/data
     networks:
       - evently-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 1s
+      timeout: 3s
+      retries: 5
 
   redis-requests:
     image: redis:7
@@ -279,6 +303,11 @@ services:
       - redis_requests_data:/data
     networks:
       - evently-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 1s
+      timeout: 3s
+      retries: 5
 
   redis-price:
     image: redis:7
@@ -290,6 +319,11 @@ services:
       - redis_price_data:/data
     networks:
       - evently-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 1s
+      timeout: 3s
+      retries: 5
 
   redis-updated-seats:
     image: redis:7
@@ -301,6 +335,27 @@ services:
       - redis_updated_seats_data:/data
     networks:
       - evently-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 1s
+      timeout: 3s
+      retries: 5
+
+  redis-rate-limiter:
+    image: redis:7
+    container_name: redis-rate-limiter
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6384:6379"
+    volumes:
+      - redis_rate_limiter_data:/data
+    networks:
+      - evently-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 1s
+      timeout: 3s
+      retries: 5
 
 
 volumes:
@@ -312,6 +367,7 @@ volumes:
   redis_requests_data:
   redis_price_data:
   redis_updated_seats_data:
+  redis_rate_limiter_data:
 
 networks:
   evently-net:

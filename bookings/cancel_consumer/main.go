@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"cancel_consumer/consumer"
+	"cancel_consumer/kafka"
 
 	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/postgres"
@@ -19,7 +20,7 @@ func main() {
 	topic := mustGetEnv("TOPIC_CANCEL_REQUESTS")
 	group := mustGetEnv("CANCEL_CONSUMER_GROUP")
 
-	redisReq := newRedisClient(mustGetEnv("REDIS_HOST"), mustGetEnv("REDIS_PORT"), mustGetEnv("REDIS_PASSWORD"))
+	redisReq := newRedisClient(mustGetEnv("REDIS_REQUESTS_HOST"), mustGetEnv("REDIS_REQUESTS_PORT"), mustGetEnv("REDIS_REQUESTS_PASSWORD"))
 	redisSeats := newRedisClient(mustGetEnv("REDIS_SEATS_HOST"), mustGetEnv("REDIS_SEATS_PORT"), mustGetEnv("REDIS_SEATS_PASSWORD"))
 
 	dbHost := mustGetEnv("POSTGRES_BOOKINGS_HOST")
@@ -45,8 +46,10 @@ func main() {
 		log.Fatal("Failed to connect to bookings database:", err)
 	}
 
+	producer := kafka.NewProducer(kafkaBrokers)
+
 	log.Println("Starting Cancel Consumer...")
-	consumer.StartCancelConsumer(kafkaBrokers, topic, group, redisReq, redisSeats, db)
+	consumer.StartCancelConsumer(kafkaBrokers, topic, group, redisReq, redisSeats, db, producer)
 
 }
 

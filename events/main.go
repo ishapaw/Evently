@@ -73,13 +73,16 @@ func main() {
 		api.GET("/events/all", eventController.GetAllEvents)
 		api.GET("/events/upcoming", eventController.GetAllUpcomingEvents)
 		api.GET("/events/:id", eventController.GetEventByID)
-		api.GET("/events/price/:id", eventController.GetPriceByID)
 
 		admin := api.Group("/events")
 		admin.Use(auth.AdminOnly())
 		{
 			admin.POST("/create", eventController.CreateEvent)
 			admin.PUT("/:id", eventController.UpdateEvent)
+			admin.GET("/analytics/capacityUtil", eventController.GetCapacityUtilization)
+			admin.GET("/analytics/mostBooked", eventController.GetMostBookedEvents)
+			admin.GET("/analytics/mostPopular", eventController.GetMostPopularEvents)
+
 		}
 	}
 
