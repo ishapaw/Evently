@@ -86,7 +86,7 @@ func main() {
 		}
 	}
 
-	port := mustGetEnv("PORT")
+	port := "8082"
 	log.Println("Events service running on port " + port)
 	if err := r.Run(":" + port); err != nil {
 		log.Fatal("Failed to start events server:", err)

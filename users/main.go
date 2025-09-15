@@ -47,7 +47,7 @@ func main() {
 	r.POST("/api/users/register", userController.Register)
 	r.POST("/api/users/login", userController.Login)
 
-	port := mustGetEnv("PORT")
+	port := "8081"
 	log.Println("Users service running on port " + port)
 	if err := r.Run(":" + port); err != nil {
 		log.Fatal("Failed to start users service:", err)

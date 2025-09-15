@@ -62,7 +62,7 @@ func main() {
 		}
 	}
 
-	port := mustGetEnv("PORT_BOOKINGS_VIEW")
+	port := "8084"
 
 	log.Println("Bookings View Service running on port " + port)
 	if err := r.Run(":" + port); err != nil {
