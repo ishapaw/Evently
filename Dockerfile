@@ -9,8 +9,8 @@ WORKDIR /app/users
 RUN go mod tidy && go build -o /bin/users
 
 # Build bookings service
-WORKDIR /app/bookings
-RUN go mod tidy && go build -o /bin/bookings
+WORKDIR /app/bookings_view
+RUN go mod tidy && go build -o /bin/bookings_view
 
 # Build events service
 WORKDIR /app/events
