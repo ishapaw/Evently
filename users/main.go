@@ -4,9 +4,9 @@ import (
 	"log"
 	"os"
 	"time"
-	"users/controllers"
-	"users/repository"
-	"users/service"
+	"evently/users/controllers"
+	"evently/users/repository"
+	"evently/users/service"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/postgres"
