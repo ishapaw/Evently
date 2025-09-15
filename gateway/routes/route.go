@@ -9,6 +9,13 @@ import (
 	"gateway/kafka"
 	"gateway/proxy"
 
+	"users/service"
+	"users/repository"
+	"users/controllers"
+
+	"gorm.io/gorm"
+
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
@@ -70,14 +77,20 @@ func HandleBookingRequest(c *gin.Context) {
 	c.JSON(http.StatusAccepted, gin.H{"status": "request queued", "request_id" : body["request_id"]})
 }
 
-func RegisterRoutes(r *gin.Engine, prod *kafka.Producer, redis *redis.Client) {
+func RegisterRoutes(r *gin.Engine, prod *kafka.Producer, redis *redis.Client, db *gorm.DB) {
 	producer = prod
 	log.Println("Registering routes")
 
+	userRepo := repository.NewUserRepository(db)
+	userService := service.NewUserService(userRepo)
+	userController := controllers.NewUserController(userService) // initialize users logic
+
 	api := r.Group("/api")
 
-	api.POST("/users/register", proxy.ReverseProxy("http://127.0.0.1:8081/api/users/register"))
-api.POST("/users/login", proxy.ReverseProxy("http://127.0.0.1:8081/api/users/login"))
+	// Directly bind users controller methods
+	api.POST("/users/register", userController.Register)
+	api.POST("/users/login", userController.Login)
+
 
 	protected := api.Group("/v1")
 	protected.Use(middleware.AuthMiddleware())

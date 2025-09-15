@@ -5,11 +5,14 @@ import (
 	"gateway/routes"
 	"log"
 	"os"
+	"time"
+
+	"context"
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
-	"context"
-
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
 func main() {
@@ -30,10 +33,33 @@ func main() {
 		mustGetEnv("REDIS_RATE_LIMITER_HOST"),
 		mustGetEnv("REDIS_RATE_LIMITER_PORT"),
 		mustGetEnv("REDIS_RATE_LIMITER_PASSWORD"),
-
 	)
 
-	routes.RegisterRoutes(r, producer, redis)
+	dbHost := mustGetEnv("DB_HOST")
+	dbPort := mustGetEnv("DB_PORT")
+	dbUser := mustGetEnv("DB_USER")
+	dbPass := mustGetEnv("DB_PASSWORD")
+	dbName := mustGetEnv("DB_NAME")
+
+	dsn := "host=" + dbHost + " user=" + dbUser + " password=" + dbPass + " dbname=" + dbName + " port=" + dbPort + " sslmode=disable"
+
+	var db *gorm.DB
+	var err error
+
+	for i := 0; i < 10; i++ {
+		db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
+		if err == nil {
+			break
+		}
+		log.Println("Waiting for Postgres to be ready...")
+		time.Sleep(3 * time.Second)
+	}
+
+	if err != nil {
+		log.Fatal("failed to connect database:", err)
+	}
+
+	routes.RegisterRoutes(r, producer, redis, db)
 
 	port := mustGetEnv("PORT")
 	log.Println("Gateway service running on port " + port)
